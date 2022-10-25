@@ -150,8 +150,8 @@ Fixpoint beval (b : bexp) : bool :=
   | BFalse      => false
   | BEq a1 a2   => (aeval a1) =? (aeval a2)
   | BNeq a1 a2  => negb ((aeval a1) =? (aeval a2))
-  | BLe a1 a2   => (aeval a1) <=? (aeval a2)
-  | BGt a1 a2   => negb ((aeval a1) <=? (aeval a2))
+  | BLe a1 a2   (* a1 <= a2 *)=> (aeval a1) <=? (aeval a2)
+  | BGt a1 a2   (* a1 >  a2 *)=> negb ((aeval a1) <=? (aeval a2))
   | BNot b1     => negb (beval b1)
   | BAnd b1 b2  => andb (beval b1) (beval b2)
   end.
@@ -440,7 +440,9 @@ Proof.
      then need to interrupt Coq to make it listen to you again.  (In
      Proof General, [C-c C-c] does this.) *)
   (* repeat rewrite Nat.add_comm. *)
-Admitted.
+  rewrite Nat.add_comm.
+  reflexivity.
+Qed.
 
 (** Wait -- did we just write an infinite loop in Coq?!?!
 
@@ -463,13 +465,63 @@ Admitted.
     it is sound.  Use the tacticals we've just seen to make the proof
     as short and elegant as possible. *)
 
-Fixpoint optimize_0plus_b (b : bexp) : bexp
-  (* REPLACE THIS LINE WITH ":= _your_definition_ ." *). Admitted.
+Fixpoint optimize_0plus_b (b : bexp) : bexp :=
+  match b with
+  | BTrue       => BTrue
+  | BFalse      => BFalse
+  | BEq a1 a2   => BEq (optimize_0plus a1) (optimize_0plus a2)
+  | BNeq a1 a2  => BNeq (optimize_0plus a1) (optimize_0plus a2)
+  | BLe a1 a2   => BLe (optimize_0plus a1) (optimize_0plus a2)
+  | BGt a1 a2   => BGt (optimize_0plus a1) (optimize_0plus a2)
+  | BNot b1     => BNot (optimize_0plus_b b1)
+  | BAnd b1 b2  => BAnd (optimize_0plus_b b1) (optimize_0plus_b b2)
+  end.
 
 Theorem optimize_0plus_b_sound : forall b,
   beval (optimize_0plus_b b) = beval b.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction b; simpl; trivial; try repeat rewrite optimize_0plus_sound; trivial.
+  - rewrite IHb. reflexivity.
+  - rewrite IHb1, IHb2. reflexivity.
+Qed.
+
+Definition optimize_0plus_b' (b : bexp) : bexp :=
+  match b with
+  | BLe (ANum 0) a2 => BTrue
+  | BGt (ANum 0) a2 => BFalse
+  | BLe a1 a2   => BLe a1 a2
+  | BGt a1 a2   => BGt a1 a2
+  | BTrue       => BTrue
+  | BFalse      => BFalse
+  | BEq a1 a2   => BEq a1 a2
+  | BNeq a1 a2  => BNeq a1 a2
+  | BNot b1     => BNot b1
+  | BAnd b1 b2  => BAnd b1 b2
+  end.
+
+Theorem optimize_0plus_b_sound' : forall b,
+  beval (optimize_0plus_b' b) = beval b.
+Proof.
+  intros.
+  induction b; simpl; try repeat rewrite optimize_0plus_sound; trivial.
+  - destruct a1; simpl; trivial.
+    destruct n; simpl; reflexivity.
+  - destruct a1; simpl; trivial.
+    destruct n; simpl; trivial.
+Qed.
+
+Definition optimize_0plus_b'' (b : bexp) : bexp :=
+  optimize_0plus_b' (optimize_0plus_b b).
+
+Theorem optimize_0plus_b_sound'' : forall b,
+  beval (optimize_0plus_b'' b) = beval b.
+Proof.
+  intros. induction b; trivial; unfold optimize_0plus_b'';
+  try repeat rewrite optimize_0plus_b_sound';
+  try repeat rewrite optimize_0plus_b_sound;
+  trivial.
+Qed.
 (** [] *)
 
 (** **** Exercise: 4 stars, standard, optional (optimize)
@@ -482,9 +534,30 @@ Proof.
     optimization and its correctness proof -- and build up
     incrementally to something more interesting.)  *)
 
-(* FILL IN HERE
+Fixpoint optimize_0 (a:aexp) : aexp :=
+  match a with
+  | ANum n => ANum n
+  | APlus (ANum 0) e2  => optimize_0 e2
+  | APlus e1 (ANum 0)  => optimize_0 e1
+  | APlus  e1 e2       => APlus (optimize_0 e1) (optimize_0 e2)
+  | AMinus e1 (ANum 0) => optimize_0 e1
+  | AMinus e1 e2       => AMinus (optimize_0 e1) (optimize_0 e2)
+  | AMult e1 (ANum 0)  => ANum 0
+  | AMult (ANum 0) e2  => ANum 0
+  | AMult e1 (ANum 1)  => optimize_0 e1
+  | AMult (ANum 1) e2  => optimize_0 e2
+  | AMult  e1 e2       => AMult  (optimize_0 e1) (optimize_0 e2)
+  end.
 
-    [] *)
+Theorem optimize_0_sound : forall a,
+  aeval (optimize_0 a) = aeval a.
+Proof.
+  induction a; auto;
+  destruct a1, a2; simpl in *; auto;
+  try destruct n; try destruct n0 eqn:En0; auto;
+  try destruct n; try destruct n1; subst; simpl in *;auto; lia.
+Qed.
+
 
 (* ================================================================= *)
 (** ** Defining New Tactics *)
@@ -1542,7 +1615,12 @@ Example ceval_example2:
     Z := 2
   ]=> (Z !-> 2 ; Y !-> 1 ; X !-> 0).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  apply E_Seq with (X !-> 0).
+  apply E_Asgn. reflexivity.
+  apply E_Seq with (Y !-> 1 ; X !-> 0).
+  apply E_Asgn. reflexivity.
+  apply E_Asgn. reflexivity.
+Qed.
 (** [] *)
 
 Set Printing Implicit.
@@ -1556,15 +1634,36 @@ Check @ceval_example2.
     which you can reverse-engineer to discover the program you should
     write.  The proof of that theorem will be somewhat lengthy. *)
 
-Definition pup_to_n : com
-  (* REPLACE THIS LINE WITH ":= _your_definition_ ." *). Admitted.
+Definition pup_to_n : com :=
+<{  Y := 0;
+    while X > 0 do
+    Y := Y + X;
+    X := X - 1
+    end
+  }>.
 
 Theorem pup_to_2_ceval :
   (X !-> 2) =[
     pup_to_n
   ]=> (X !-> 0 ; Y !-> 3 ; X !-> 1 ; Y !-> 2 ; Y !-> 0 ; X !-> 2).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  unfold pup_to_n.
+  apply E_Seq with (Y !-> 0 ; X !-> 2).
+  apply E_Asgn. reflexivity.
+  apply E_WhileTrue with (X !-> 1; Y !-> 2; Y !-> 0; X !-> 2).
+  simpl. reflexivity.
+  apply E_Seq with (Y !-> 2; Y !-> 0; X !-> 2).
+  apply E_Asgn. simpl. reflexivity.
+  apply E_Asgn. simpl. reflexivity.
+  apply E_WhileTrue with (X !-> 0; Y !-> 3; X !-> 1; Y !-> 2; Y !-> 0; X !-> 2).
+  simpl. reflexivity.
+  apply E_Seq with (Y !-> 3; X !-> 1; Y !-> 2; Y !-> 0; X !-> 2).
+  apply E_Asgn. simpl. reflexivity.
+  apply E_Asgn. simpl. reflexivity.
+  apply E_WhileFalse.
+  simpl. reflexivity.
+Qed.
 (** [] *)
 
 (* ================================================================= *)
@@ -1653,6 +1752,7 @@ Proof.
   intros st st' contra. unfold loop in contra.
   remember <{ while true do skip end }> as loopdef
            eqn:Heqloopdef.
+  simpl.
 
   (** Proceed by induction on the assumed derivation showing that
       [loopdef] terminates.  Most of the cases are immediately
