@@ -207,13 +207,23 @@ Proof. reflexivity. Qed.
    [X] (inclusive: [1 + 2 + ... + X]) in the variable [Y].  Make sure
    your solution satisfies the test that follows. *)
 
-Definition pup_to_n : com
-  (* REPLACE THIS LINE WITH ":= _your_definition_ ." *). Admitted.
+Definition pup_to_n : com :=
+<{
+  Y := 0;
+  while (1 <= X) do
+    Y := Y + X;
+    X := X - 1
+  end
+}>.
+
+
 
 Example pup_to_n_1 :
-  test_ceval (X !-> 5) pup_to_n
-  = Some (0, 15, 0).
-(* FILL IN HERE *) Admitted.
+  test_ceval (X !-> 5) pup_to_n = Some (0, 15, 0).
+Proof.
+  trivial.
+Qed.
+
 (* 
 Proof. reflexivity. Qed.
 *)
@@ -225,10 +235,26 @@ Proof. reflexivity. Qed.
     sets [Z] to [1] otherwise.  Use [test_ceval] to test your
     program. *)
 
-(* FILL IN HERE
+Definition peven : com :=
+<{
+  while (2 <= X) do
+    X := X - 2
+  end;
+  Z := X
+}>.
 
-    [] *)
 
+
+Example peven_1 :
+  test_ceval (X !-> 5) peven = Some (1, 0, 1).
+Proof.
+  trivial.
+Qed.
+Example peven_2 :
+  test_ceval (X !-> 500) peven = Some (0, 0, 0).
+Proof.
+  trivial.
+Qed.
 (* ################################################################# *)
 (** * Relational vs. Step-Indexed Evaluation *)
 
@@ -360,7 +386,28 @@ Theorem ceval__ceval_step: forall c st st',
 Proof.
   intros c st st' Hce.
   induction Hce.
-  (* FILL IN HERE *) Admitted.
+  - exists 1. trivial.
+  - exists 1. subst. trivial.
+  - destruct IHHce1. destruct IHHce2.
+    exists (S (x + x0)). simpl.
+    apply ceval_step_more with (i2 := (x + x0)) in H.
+    apply ceval_step_more with (i2 := (x + x0)) in H0.
+    rewrite H. rewrite H0. trivial. lia. lia.
+  - destruct IHHce.
+    exists (S x). simpl.
+    apply ceval_step_more with (i2 := x) in H0.
+    rewrite H. assumption. lia.
+  - destruct IHHce.
+    exists (S x). simpl.
+    apply ceval_step_more with (i2 := x) in H0.
+    rewrite H. assumption. lia.
+  - exists 1. simpl. rewrite H. reflexivity.
+  - destruct IHHce1. destruct IHHce2.
+    exists (S (x + x0)). simpl.
+    apply ceval_step_more with (i2 := (x + x0)) in H1.
+    apply ceval_step_more with (i2 := (x + x0)) in H0.
+    rewrite H. rewrite H0. trivial. lia. lia.
+Qed.
 (** [] *)
 
 Theorem ceval_and_ceval_step_coincide: forall c st st',

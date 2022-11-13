@@ -530,7 +530,7 @@ Qed.
     predefined constant [I : True]: *)
 
 Lemma True_is_true : True.
-Proof. apply I. Qed.
+Proof. constructor. Qed.
 
 (** Unlike [False], which is used extensively, [True] is used
     relatively rarely, since it is trivial (and therefore
@@ -559,7 +559,7 @@ Definition disc_fn (n: nat) : Prop :=
 Theorem disc : forall n, ~ (O = S n).
 Proof.
   intros n H1.
-  assert (H2 : disc_fn O). { simpl. apply I. }
+  assert (H2 : disc_fn O). { simpl. constructor. }
   rewrite H1 in H2. simpl in H2. apply H2.
 Qed.
 

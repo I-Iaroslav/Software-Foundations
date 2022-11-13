@@ -1251,7 +1251,13 @@ Qed.
 *)
 
 Fixpoint forallb {X : Type} (test : X -> bool) (l : list X) : bool
-	:= fold (fun x => andb (test x)) l true.
+	:= match l with 
+     | [] => true
+     | (h :: t) => match (test h) with
+                   | true => forallb test t
+                   | false => false
+                   end
+     end.
 
 Example test_forallb_1 : forallb odd [1;3;5;7;9] = true.
 Proof.
@@ -1275,7 +1281,13 @@ Proof.
 Qed.
 
 Fixpoint existsb {X : Type} (test : X -> bool) (l : list X) : bool
-	:= fold (fun x => orb (test x)) l false.
+	:= match l with 
+     | [] => false
+     | (h :: t) => match (test h) with
+                   | true => true
+                   | false => existsb test t
+                   end
+     end.
 
 Example test_existsb_1 : existsb (eqb 5) [0;2;3;6] = false.
 Proof.
@@ -1324,10 +1336,11 @@ Qed.
 Theorem existsb_existsb' : forall (X : Type) (test : X -> bool) (l : list X),
   existsb test l = existsb' test l.
 Proof.
-	intros. induction l.
+	intros. unfold existsb'. induction l.
 	- simpl. reflexivity.
-	- unfold existsb'. simpl. 
-
+	- simpl. destruct (test x) eqn:H.
+    + simpl. reflexivity.
+    + simpl. rewrite IHl. reflexivity.
 Qed.
 
 (** [] *)
